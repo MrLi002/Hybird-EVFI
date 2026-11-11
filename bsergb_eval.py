@@ -31,15 +31,10 @@ def main(argv=None):
     device=resolve_device(args.device)
     overrides={f.name:getattr(args,f.name) for f in fields(ModelConfig) if hasattr(args,f.name)}
     model,checkpoint=model_from_checkpoint(args.checkpoint,overrides,device)
-    # Data-time switches are explicit: defaults use the revised physical-time convention.
+    # Frame-aligned files and event-bound normalization match OF-AF BS-ERGB.
     skips=args.skips or ([1,3] if args.dataset=='bsergb' else [7,15])
     dataset=RawVFIData(args.data_root,dataset=args.dataset,skips=skips,voxel_bins=model.voxel_bins,
-        num_targets=None,training=False,crop_size=None,legacy_event_time=args.legacy_event_time,
-        frame_timestamps=args.frame_timestamps,image_fps=args.image_fps,time_offset=args.time_offset,
-        frame_time_scale=args.frame_time_scale,event_time_scale=args.event_time_scale,
-        event_coords=args.event_coords,polarity=args.polarity,scene_file=args.scene_file,
-        eval_stride=args.eval_stride,gopro_odd_targets=args.gopro_odd_targets,
-        exclude_bad_frames=not args.include_bad_frames)
+        num_targets=None,training=False,crop_size=None)
     metrics=ImageMetrics(device,not args.skip_lpips,args.legacy_lpips)
     directory=Path(args.save_root);directory.mkdir(parents=True,exist_ok=True)
     (directory/'data_manifest.json').write_text(json.dumps(dataset.manifest(),ensure_ascii=False,indent=2))
@@ -92,4 +87,3 @@ def main(argv=None):
 
 if __name__=='__main__':
     main()
-

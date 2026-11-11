@@ -10,8 +10,8 @@ from models.config import ModelConfig
 from util.options import add_model_arguments
 from util.checkpoint import model_from_checkpoint
 from util.runtime import resolve_device,pad_inputs
-from util.event import load_events
-from util.voxelization import events_to_voxel_grid
+from util.event import EventSequence
+from util.voxelization import to_voxel_grid
 
 
 def main(argv=None):
@@ -22,11 +22,7 @@ def main(argv=None):
     group=p.add_mutually_exclusive_group(required=True)
     group.add_argument('--voxel',help='.npy or .npz with voxel/event key, shape (128,H,W)')
     group.add_argument('--events',help='one raw x,y,t,p .npz containing all interval events')
-    p.add_argument('--tau0',type=float);p.add_argument('--tau1',type=float)
-    p.add_argument('--event_time_scale',type=float,default=1.)
     p.add_argument('--dataset',choices=['gopro','bsergb'],default='gopro')
-    p.add_argument('--event_coords',choices=['pixels','ofaf'],default='pixels')
-    p.add_argument('--polarity',choices=['auto','01','pm1'],default='auto')
     p.add_argument('--times',type=float,nargs='+')
     p.add_argument('--ratio',type=int,default=16)
     p.add_argument('--output',default='outputs/interpolation')
@@ -41,9 +37,8 @@ def main(argv=None):
     h,w=images[0].shape[-2:]
     if images[0].shape!=images[1].shape:raise ValueError('keyframe shapes differ')
     if args.events:
-        if args.tau0 is None or args.tau1 is None:p.error('raw events require --tau0 and --tau1 in seconds')
-        events=load_events(args.events,args.dataset,args.event_coords,args.polarity,args.event_time_scale)
-        voxel=events_to_voxel_grid(events,model.voxel_bins,h,w,args.tau0,args.tau1)
+        events=EventSequence.from_npz_files([args.events],h,w,bsergb=args.dataset=='bsergb')
+        voxel=(torch.zeros(model.voxel_bins,h,w) if events is None else to_voxel_grid(events,model.voxel_bins))
     else:
         loaded=np.load(args.voxel,allow_pickle=False)
         if isinstance(loaded,np.lib.npyio.NpzFile):
@@ -68,4 +63,3 @@ def main(argv=None):
 
 
 if __name__=='__main__':main()
-

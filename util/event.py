@@ -41,11 +41,22 @@ class EventSequence:
     @classmethod
     def from_npz_files(cls, paths, image_height, image_width, start_time=None, end_time=None,
                        bsergb=False, size=None, **kwargs):
-        parts = [load_events(path, dataset='bsergb' if bsergb else 'gopro', **kwargs) for path in paths]
+        options = dict(coords='ofaf', polarity='01' if bsergb else 'pm1')
+        options.update(kwargs)
+        parts = [load_events(path, dataset='bsergb' if bsergb else 'gopro', **options) for path in paths]
+        previous_end = None
+        for path, part in zip(paths, parts):
+            if len(part):
+                begin, end = part[:, 2].min(), part[:, 2].max()
+                if previous_end is not None and begin < previous_end:
+                    raise ValueError(f'{path}: event files must share a continuous time axis; '
+                                     'per-file timestamp resets must be offset before loading')
+                previous_end = end
         events = np.concatenate(parts) if parts else np.empty((0, 4))
         if size is not None:
             y0, x0, y1, x1 = size
             events = events[(events[:,0]>=x0)&(events[:,0]<x1)&(events[:,1]>=y0)&(events[:,1]<y1)].copy()
             events[:, 0] -= x0; events[:, 1] -= y0
+        if not len(events):
+            return None
         return cls(events, image_height, image_width, start_time, end_time)
-

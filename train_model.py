@@ -1,6 +1,5 @@
 """Training entry point following the OF-AF directory and checkpoint layout."""
 import argparse
-from copy import copy
 from dataclasses import asdict
 from pathlib import Path
 import json
@@ -9,7 +8,7 @@ import time
 import torch
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from datasets import get_dataset, shared_time_collate
+from datasets import DATA_PROTOCOL, get_dataset, shared_time_collate
 from models.model import HybridModel
 from models.config import ModelConfig
 from models.losses import HybridLoss
@@ -45,7 +44,6 @@ def parser():
     p.add_argument('--max_steps',type=int,default=None,help='debug cap per epoch; leave unset for training')
     p.add_argument('--log_every',type=int,default=20)
     p.add_argument('--val_root',default=None)
-    p.add_argument('--val_scene_file',default=None)
     p.add_argument('--val_every',type=int,default=1)
     return p
 
@@ -76,6 +74,9 @@ def main(argv=None):
     if resume is not None:
         if 'args' not in resume or 'optimizer' not in resume:
             raise ValueError('--resume needs a training checkpoint; use --weights_path for author weights')
+        if resume.get('data_protocol') != DATA_PROTOCOL:
+            raise ValueError('checkpoint uses the previous data pipeline; use --weights_path '
+                             'to start training with frame-aligned OF-AF data')
         explicit=explicit_destinations(p,argv)
         for key,value in resume['args'].items():
             if key not in explicit and hasattr(args,key):
@@ -108,8 +109,7 @@ def main(argv=None):
         raise ValueError('dataset contains fewer samples than one training batch')
     val=None
     if args.val_root:
-        va=copy(args);va.scene_file=args.val_scene_file
-        val=get_dataset(va,training=False,root=args.val_root)
+        val=get_dataset(args,training=False,root=args.val_root)
         training_paths={str(s.path.resolve()) for s in dataset.scenes}
         if training_paths & {str(s.path.resolve()) for s in val.scenes}:
             raise ValueError('training and validation scenes overlap')
@@ -190,7 +190,7 @@ def main(argv=None):
             record['val_psnr_float']=validate(model,val,device)
             improved=record['val_psnr_float']>best_psnr
             best_psnr=max(best_psnr,record['val_psnr_float'])
-        checkpoint=dict(model=model.state_dict(),model_config=asdict(cfg),args=vars(args),
+        checkpoint=dict(model=model.state_dict(),model_config=asdict(cfg),args=vars(args),data_protocol=DATA_PROTOCOL,
             optimizer=optimizer.state_dict(),optimizer_param_names=param_names,scheduler=scheduler.state_dict(),
             scaler=scaler.state_dict(),epoch=epoch,global_step=global_step,best_psnr=best_psnr,
             rng=capture_rng(),loader_rng=generator.get_state())
@@ -202,4 +202,3 @@ def main(argv=None):
 
 if __name__=='__main__':
     main()
-
