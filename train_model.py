@@ -6,6 +6,7 @@ import json
 import sys
 import time
 import torch
+from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from datasets import DATA_PROTOCOL, get_dataset, shared_time_collate
@@ -42,7 +43,8 @@ def parser():
     p.add_argument('--num_threads',type=int,default=None)
     p.add_argument('--no_augmentation',action='store_true')
     p.add_argument('--max_steps',type=int,default=None,help='debug cap per epoch; leave unset for training')
-    p.add_argument('--log_every',type=int,default=20)
+    p.add_argument('--log_every',type=int,default=1,
+                   help='minimum batches between progress-bar refreshes')
     p.add_argument('--val_root',default=None)
     p.add_argument('--val_every',type=int,default=1)
     return p
@@ -167,22 +169,25 @@ def main(argv=None):
     model.train()
     for epoch in range(start_epoch,args.epoch):
         sums={};begin=time.perf_counter()
-        for index,batch in enumerate(loader):
-            if index>=steps:break
-            im0,im1,event,targets,times=(batch[key].to(device,non_blocking=True) for key in ('im0','im1','event','targets','times'))
-            optimizer.zero_grad(set_to_none=True)
-            with torch.autocast(device_type=device.type,enabled=scaler.is_enabled()):
-                outputs=model(im0,im1,event,times,return_aux=True)
-                loss,parts=criterion(outputs,targets,im0,im1)
-            if not torch.isfinite(loss):raise FloatingPointError(f'nonfinite loss at epoch {epoch}, batch {index}')
-            scaler.scale(loss).backward();scaler.unscale_(optimizer)
-            torch.nn.utils.clip_grad_norm_(model.parameters(),args.grad_clip,error_if_nonfinite=True)
-            old_scale=scaler.get_scale();scaler.step(optimizer);scaler.update()
-            if scaler.get_scale()>=old_scale:scheduler.step()
-            global_step+=1
-            for key,value in parts.items():sums[key]=sums.get(key,0.)+float(value)
-            if index%args.log_every==0:
-                print(f'epoch={epoch} batch={index}/{steps} loss={float(loss):.6f} lr={optimizer.param_groups[-1]["lr"]:.3e}',flush=True)
+        with tqdm(total=steps,desc=f'Train Epoch({epoch}/{args.epoch})',
+                  dynamic_ncols=True,miniters=args.log_every) as bar:
+            for index,batch in enumerate(loader):
+                if index>=steps:break
+                im0,im1,event,targets,times=(batch[key].to(device,non_blocking=True) for key in ('im0','im1','event','targets','times'))
+                optimizer.zero_grad(set_to_none=True)
+                with torch.autocast(device_type=device.type,enabled=scaler.is_enabled()):
+                    outputs=model(im0,im1,event,times,return_aux=True)
+                    loss,parts=criterion(outputs,targets,im0,im1)
+                if not torch.isfinite(loss):raise FloatingPointError(f'nonfinite loss at epoch {epoch}, batch {index}')
+                scaler.scale(loss).backward();scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(model.parameters(),args.grad_clip,error_if_nonfinite=True)
+                old_scale=scaler.get_scale();scaler.step(optimizer);scaler.update()
+                if scaler.get_scale()>=old_scale:scheduler.step()
+                global_step+=1
+                for key,value in parts.items():sums[key]=sums.get(key,0.)+float(value)
+                bar.set_postfix({'sum_loss':f'{sums["total"]:.4f}',
+                                 'learn_rate':f'{optimizer.param_groups[-1]["lr"]:.6f}'},refresh=False)
+                bar.update(1)
         record=dict(epoch=epoch,global_step=global_step,seconds=time.perf_counter()-begin,
                     **{key:value/steps for key,value in sums.items()})
         improved=False
@@ -197,7 +202,6 @@ def main(argv=None):
         atomic_save(checkpoint,directory/'last.pth');atomic_save(checkpoint,directory/f'epoch{epoch}.pth')
         if improved:atomic_save(checkpoint,directory/'best.pth')
         with (directory/'log.jsonl').open('a') as file:file.write(json.dumps(record)+'\n')
-        print(json.dumps(record),flush=True)
 
 
 if __name__=='__main__':

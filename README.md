@@ -135,6 +135,8 @@ python train_model.py --resume train/bsergb_hybrid_large/last.pth
 
 `--val_root` 指定独立验证 split。训练与验证场景路径重叠时拒绝运行。训练会保存 `args.json`、`data_manifest.json`、`log.jsonl`；验证保存的是浮点 PSNR，与评测脚本 8-bit PSNR 分开标记。
 
+终端使用 `tqdm` 显示 `Train Epoch(0/20): ... sum_loss=..., learn_rate=...`，包含当前批次/总批次、耗时、预计剩余时间和速度。`sum_loss` 是本轮所有已完成 batch 的总损失累加，保留四位小数；`learn_rate` 显示最后一个优化器参数组的当前学习率，保留六位小数。`--log_every` 默认 1，控制进度条刷新所需的最少 batch 数；实际刷新也由 tqdm 的时间间隔限制。设置 `--max_steps` 时，总批次显示实际训练上限；`log.jsonl` 继续保存每轮平均损失和验证指标。
+
 ## 8. 评测与预测保存
 
 ```bash

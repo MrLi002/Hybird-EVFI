@@ -1,4 +1,13 @@
-# 当前数据读取改动验证
+# 训练进度条格式更新验证
+
+- 终端改用 tqdm，描述为 `Train Epoch(epoch/total)`，后缀依次为四位小数 `sum_loss` 和六位小数 `learn_rate`。
+- `python -m pytest tests/test_cli.py -q`：**3 passed**，覆盖训练/续训一致性、两个数据集评测与单对推理、Large 全模块反向。
+- 另运行 CPU 两轮、每轮两个 batch 的训练，确认进度条总数为 2/2、每轮累计损失与 `log.jsonl` 平均总损失乘以 2 一致、总优化步数为 4。
+- Python 编译和 `git diff --check` 通过。本次日志改动未重复运行完整模型/数据单元测试；下方完整测试结果为此前数据读取改动的记录。
+
+---
+
+# 数据读取改动验证记录
 
 GoPro 与 BS-ERGB 已统一为 OF-AF BS-ERGB 式帧间文件布局和 tuple 接口；训练/评测入口完成适配。
 
