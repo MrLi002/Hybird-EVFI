@@ -1,12 +1,13 @@
-from .common import RawVFIData
+"""GoPro organized like OF-AF BS-ERGB: images/ plus frame-aligned events/."""
+from .common import FrameAlignedTrain, FrameAlignedTest
 
 
-class GOPRO_Train(RawVFIData):
-    def __init__(self, data_root, **kwargs):
-        super().__init__(data_root, dataset='gopro', training=True, **kwargs)
+class GOPRO_Train(FrameAlignedTrain):
+    def __init__(self, voxel_bins, data_root, scene, skip_frame, crop_size=256, augmentation=True):
+        super().__init__(voxel_bins, data_root, scene, skip_frame, crop_size=crop_size,
+                         augmentation=augmentation)
 
 
-class GOPRO_Test(RawVFIData):
-    def __init__(self, data_root, skips=(7,15), **kwargs):
-        super().__init__(data_root, dataset='gopro', skips=skips, training=False, num_targets=None, **kwargs)
-
+class GOPRO_Test(FrameAlignedTest):
+    def __init__(self, voxel_bins, data_root, scene, skip_frame):
+        super().__init__(voxel_bins, data_root, scene, skip_frame)

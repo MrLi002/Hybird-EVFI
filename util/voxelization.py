@@ -44,6 +44,8 @@ def to_voxel_grid(event_sequence, nb_of_time_bins=128, remapping_maps=None):
     if remapping_maps is not None:
         maps = np.asarray(remapping_maps)
         features[:, :2] = maps[:, features[:, 1].astype(int), features[:, 0].astype(int)].T
+    start, end = event_sequence.start_time(), event_sequence.end_time()
+    if end == start:
+        end = start+1.  # Keep single-timestamp events finite.
     return events_to_voxel_grid(features, nb_of_time_bins, event_sequence._image_height,
-                                event_sequence._image_width, event_sequence.start_time(), event_sequence.end_time())
-
+                                event_sequence._image_width, start, end)

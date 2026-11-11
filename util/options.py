@@ -26,20 +26,7 @@ def add_data_arguments(parser, evaluation=False):
     parser.add_argument('--dataset', choices=['gopro','bsergb'], default='bsergb' if evaluation else 'gopro')
     parser.add_argument('--data_root','--test_root', dest='data_root')
     parser.add_argument('--skips', type=int, nargs='+', default=None)
-    parser.add_argument('--frame_timestamps', default=None, help='per-scene frame timestamp file; autodetected if omitted')
-    parser.add_argument('--image_fps', type=float, default=None, help='known RGB FPS, default 240 only for GoPro')
-    parser.add_argument('--time_offset', type=float, default=0., help='seconds, used with FPS-generated frame times')
-    parser.add_argument('--frame_time_scale', type=float, default=1., help='convert frame-file timestamps to seconds')
-    parser.add_argument('--event_time_scale', type=float, default=1., help='convert raw event and event-file timestamps to seconds')
-    parser.add_argument('--event_coords', choices=['ofaf','pixels'], default='ofaf')
-    parser.add_argument('--polarity', choices=['auto','01','pm1'], default='auto')
-    parser.add_argument('--legacy_event_time', action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument('--legacy_lpips', action=argparse.BooleanOptionalAction, default=False)
-    parser.add_argument('--scene_file', default=None)
-    parser.add_argument('--num_targets', type=int, default=4)
+    parser.add_argument('--num_targets', type=int, default=None,
+                        help='optional training target cap; omitted means all intermediate frames, as in OF-AF')
     parser.add_argument('--crop_size', type=int, default=256)
-    parser.add_argument('--eval_stride', type=int, default=None)
-    parser.add_argument('--gopro_odd_targets', action=argparse.BooleanOptionalAction, default=False,
-                        help='evaluate zero-based odd target indices as upstream; pair with original stride/protocol')
-    parser.add_argument('--include_bad_frames', action='store_true')
-

@@ -22,7 +22,7 @@ def run(*args):
 def test_train_resume_reproduces_next_epoch_and_eval_inference(tmp_path):
     data=tmp_path/'data';create(data)
     first=tmp_path/'first';resumed=tmp_path/'resumed'
-    run('train_model.py','--dataset','bsergb','--data_root',data,'--event_coords','pixels',
+    run('train_model.py','--dataset','bsergb','--data_root',data,
         '--skips','1','--refine','resblock','--voxel_bins','8','--nb_of_flow','2',
         '--crop_size','32','--num_targets','1','--num_worker','0','--epoch','2',
         '--max_steps','1','--w_lpips','0','--device','cpu','--num_threads','2','--save_dir',first)
@@ -34,7 +34,7 @@ def test_train_resume_reproduces_next_epoch_and_eval_inference(tmp_path):
         torch.testing.assert_close(a['model'][key],b['model'][key],atol=0,rtol=0)
     evaluation=tmp_path/'eval'
     run('bsergb_eval.py','--checkpoint',resumed/'last.pth','--test_root',data,
-        '--event_coords','pixels','--skips','1','--skip_lpips','--max_intervals','1',
+        '--skips','1','--skip_lpips','--max_intervals','1',
         '--device','cpu','--num_threads','2','--save_root',evaluation,'--save_pred')
     summary=json.loads((evaluation/'summary.json').read_text())
     assert summary['frames']==1 and summary['subset'] and '1' in summary['by_skip']
@@ -50,7 +50,7 @@ def test_train_resume_reproduces_next_epoch_and_eval_inference(tmp_path):
 def test_large_all_modules_cli_backward(tmp_path):
     data=tmp_path/'data';create(data)
     output=tmp_path/'all_modules'
-    run('train_model.py','--dataset','bsergb','--data_root',data,'--event_coords','pixels',
+    run('train_model.py','--dataset','bsergb','--data_root',data,
         '--skips','1','--refine','transformer','--unit_dim','44','--voxel_bins','8','--nb_of_flow','2',
         '--basr','--mask_in_refine','--flow_corr','--splat_metric','--w_flow','.1','--w_ps','.1',
         '--checkpoint_bifeb','--checkpoint_refine','--crop_size','32','--num_targets','1',
@@ -61,3 +61,23 @@ def test_large_all_modules_cli_backward(tmp_path):
     assert checkpoint['model']['biw.fuse_warp.metric_head.weight'].abs().sum()>0
     assert checkpoint['model']['flow_corr.decoder.4.weight'].abs().sum()>0
 
+
+def test_gopro_frame_aligned_train_eval_and_raw_event_inference(tmp_path):
+    data=tmp_path/'data';create(data,'gopro')
+    output=tmp_path/'train'
+    run('train_model.py','--dataset','gopro','--data_root',data,
+        '--skips','3','--refine','resblock','--voxel_bins','8','--nb_of_flow','2',
+        '--crop_size','32','--num_targets','1','--num_worker','0','--epoch','1',
+        '--max_steps','1','--w_lpips','0','--device','cpu','--num_threads','2','--save_dir',output)
+    evaluation=tmp_path/'eval'
+    run('gopro_eval.py','--checkpoint',output/'last.pth','--test_root',data,
+        '--skips','3','--skip_lpips','--max_intervals','1',
+        '--device','cpu','--num_threads','2','--save_root',evaluation)
+    rows=[json.loads(line) for line in (evaluation/'per_frame.jsonl').read_text().splitlines()]
+    assert len(rows)==1 and rows[0]['target']=='00002.png' and rows[0]['t']==.5
+    prediction=tmp_path/'prediction'
+    run('interpolate.py','--checkpoint',output/'last.pth',
+        '--events',data/'toy/events/00000.npz','--dataset','gopro',
+        '--im0',data/'toy/images/00000.png','--im1',data/'toy/images/00001.png',
+        '--times','.5','--device','cpu','--num_threads','2','--output',prediction)
+    assert len(list(prediction.glob('*.png')))==1
