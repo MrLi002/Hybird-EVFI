@@ -1,0 +1,42 @@
+{
+  "input_event": [
+    1,
+    128,
+    256,
+    256
+  ],
+  "prediction": [
+    1,
+    1,
+    3,
+    256,
+    256
+  ],
+  "scales": [
+    [
+      1,
+      3,
+      256,
+      256
+    ],
+    [
+      1,
+      3,
+      128,
+      128
+    ],
+    [
+      1,
+      3,
+      64,
+      64
+    ]
+  ],
+  "unit_dim": 44,
+  "all_modules": true,
+  "finite": true,
+  "seconds": 25.2822693119997,
+  "parameters": 29792224,
+  "device": "cpu",
+  "backward": false
+}
